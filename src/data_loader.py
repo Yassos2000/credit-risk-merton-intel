@@ -7,11 +7,22 @@ def main() -> None:
     start_date = "2023-06-01"
     end_date = "2026-05-31"
 
-    # Download data from Yahoo Finance
-    data = yf.download(ticker, start=start_date, end=end_date, progress=False)
+    # Download data from Yahoo Finance with automatic adjustment for dividends and splits
+    data = yf.download(
+        ticker,
+        start=start_date,
+        end=end_date,
+        progress=False,
+        auto_adjust=True,
+        group_by="column",
+    )
 
-    # Keep only adjusted close prices, if available
-    adjusted_data = data["Adj Close"].to_frame()
+    # Flatten MultiIndex columns if returned by yfinance for a single ticker
+    if hasattr(data.columns, "nlevels") and data.columns.nlevels > 1:
+        data.columns = data.columns.get_level_values(0)
+
+    # Select the adjusted close prices from the Close column
+    adjusted_data = data[["Close"]]
 
     print(f"Retrieved {len(adjusted_data)} rows for {ticker} from {start_date} to {end_date}.")
     print("\nFirst 5 rows:")
