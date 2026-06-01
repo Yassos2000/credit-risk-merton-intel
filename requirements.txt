@@ -1,5 +1,5 @@
 yfinance
-pandas-datareader
+fredapi
 pandas
 numpy
 scipy
