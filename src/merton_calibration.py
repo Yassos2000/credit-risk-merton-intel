@@ -13,6 +13,8 @@ import numpy as np
 from scipy.optimize import fsolve
 from scipy.stats import norm
 
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
 import pandas as pd
 
 
@@ -192,6 +194,68 @@ def main() -> None:
 
     print("\nDescriptive statistics for calibrated columns:")
     print(summary[["V_A_bil", "sigma_A_pct"]].describe().to_string())
+
+    # -----------------------------
+    # Plot the calibrated asset series over time
+    # -----------------------------
+    fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(14, 5), constrained_layout=True)
+
+    # Plot asset value over time in billions of USD
+    axs[0].plot(monthly_df.index, monthly_df["V_A"] / 1e9, marker="o", linestyle="-", color="#1f77b4")
+    axs[0].set_title("Calibrated Asset Value $V_{A,t}$")
+    axs[0].set_xlabel("Date")
+    axs[0].set_ylabel("Asset Value (USD billions)")
+    axs[0].grid(alpha=0.25)
+
+    # Optionally annotate key events on the V_A plot
+    def _nearest_row(timestamp: pd.Timestamp):
+        if timestamp < monthly_df.index.min() or timestamp > monthly_df.index.max():
+            return None
+        position = monthly_df.index.get_indexer([timestamp], method="nearest")[0]
+        return monthly_df.iloc[position]
+
+    event_row = _nearest_row(pd.Timestamp("2024-08-31"))
+    if event_row is not None:
+        axs[0].annotate(
+            "Layoffs / dividend cut",
+            xy=(pd.Timestamp("2024-08-31"), event_row["V_A"] / 1e9),
+            xytext=(-80, 30),
+            textcoords="offset points",
+            fontsize=9,
+            arrowprops={"arrowstyle": "->", "alpha": 0.6},
+        )
+
+    event_row = _nearest_row(pd.Timestamp("2026-04-30"))
+    if event_row is not None:
+        axs[0].annotate(
+            "Apple deal",
+            xy=(pd.Timestamp("2026-04-30"), event_row["V_A"] / 1e9),
+            xytext=(-80, -35),
+            textcoords="offset points",
+            fontsize=9,
+            arrowprops={"arrowstyle": "->", "alpha": 0.6},
+        )
+
+    # Plot asset volatility over time in percent
+    axs[1].plot(monthly_df.index, monthly_df["sigma_A"] * 100, marker="o", linestyle="-", color="#ff7f0e")
+    axs[1].set_title("Calibrated Asset Volatility $\sigma_{A,t}$")
+    axs[1].set_xlabel("Date")
+    axs[1].set_ylabel("Asset Volatility (%)")
+    axs[1].grid(alpha=0.25)
+
+    # Format the shared date axis for Year-Month display
+    date_fmt = mdates.DateFormatter("%Y-%m")
+    axs[0].xaxis.set_major_formatter(date_fmt)
+    axs[1].xaxis.set_major_formatter(date_fmt)
+    for ax in axs:
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
+
+    plot_path = PROJECT_ROOT / "outputs" / "V_A_sigma_A_timeseries.png"
+    plot_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(plot_path, dpi=120)
+    print(f"Saved time-series plot to {plot_path}")
+
+    plt.show()
 
 
 if __name__ == "__main__":
