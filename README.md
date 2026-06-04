@@ -141,6 +141,25 @@ GitHub: [@Yassos2000](https://github.com/Yassos2000)
 
 ---
 
+## 7. Sample Results
+
+### Calibrated asset value and asset volatility (32 monthly dates)
+![V_A and sigma_A time series](outputs/V_A_sigma_A_timeseries.png)
+
+Intel's asset value drops sharply in August 2024 (layoffs and dividend suspension), stagnates around $120B through 2025, then surges to $599B by May 2026 following the Apple deal. Asset volatility jumps from ~30% to a structurally higher regime of 40–80% after the August 2024 shock.
+
+### Default probability and distance-to-default through the restructuring
+![Credit risk time series](outputs/credit_risk_timeseries.png)
+
+The default probability peaks twice: once in October 2024 (immediate post-shock at ~1.8%) and more sharply in May–June 2025 (~2.3%), reflecting prolonged uncertainty around the new CEO's restructuring plans. By May 2026, PD returns to near-zero levels.
+
+### Multi-maturity survival curve at the latest date (May 2026)
+![Survival curve at May 2026](outputs/survival_curve_latest.png)
+
+The decreasing, convex survival curve is consistent with the geometric Brownian motion assumption. Even with Intel's high asset volatility (~82%), the firm's strong asset/debt ratio (≈25×) keeps short-term default probability negligible, while the 5-year cumulative default probability reaches ~16.5%.
+
+---
+
 ## 9. References
 
 - Merton, R. C. (1974). *On the Pricing of Corporate Debt: The Risk Structure of Interest Rates*. Journal of Finance, 29(2), 449–470.
