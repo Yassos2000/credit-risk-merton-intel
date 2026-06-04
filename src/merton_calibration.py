@@ -196,6 +196,107 @@ def main() -> None:
     print(summary[["V_A_bil", "sigma_A_pct"]].describe().to_string())
 
     # -----------------------------
+    # Compute credit risk metrics for the monthly time series (tau = 1 year)
+    # -----------------------------
+    tau = 1.0
+    monthly_df["DD"] = (
+        np.log(monthly_df["V_A"] / monthly_df["D"]) +
+        (monthly_df["r"] - 0.5 * monthly_df["sigma_A"] ** 2) * tau
+    ) / (monthly_df["sigma_A"] * np.sqrt(tau))
+    monthly_df["S"] = norm.cdf(monthly_df["DD"])
+    monthly_df["PD"] = 1.0 - monthly_df["S"]
+
+    credit_metrics_path = PROJECT_ROOT / "data" / "processed" / "intel_monthly_credit_metrics.csv"
+    credit_metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    monthly_df.to_csv(credit_metrics_path)
+    print(f"Saved monthly credit metrics to {credit_metrics_path}")
+
+    credit_stats = monthly_df[["DD", "S", "PD"]].copy()
+    credit_stats["S_pct"] = credit_stats["S"] * 100
+    credit_stats["PD_pct"] = credit_stats["PD"] * 100
+
+    print("\nDescriptive statistics for credit metrics:")
+    print(credit_stats[["DD", "S_pct", "PD_pct"]].describe().rename(columns={
+        "S_pct": "Survival (%)",
+        "PD_pct": "Default Probability (%)",
+    }).to_string())
+
+    # -----------------------------
+    # Plot the credit risk time series
+    # -----------------------------
+    date_fmt = mdates.DateFormatter("%Y-%m")
+    fig_cr, axs_cr = plt.subplots(nrows=2, ncols=1, figsize=(12, 10), constrained_layout=True)
+
+    axs_cr[0].plot(monthly_df.index, monthly_df["PD"] * 100, marker="o", linestyle="-", color="#d62728")
+    axs_cr[0].set_title("Default Probability $PD(t)$ Over Time")
+    axs_cr[0].set_xlabel("Date")
+    axs_cr[0].set_ylabel("Default Probability (%)")
+    axs_cr[0].grid(alpha=0.25)
+    max_idx = monthly_df["PD"].idxmax()
+    axs_cr[0].annotate(
+        "Maximum PD",
+        xy=(max_idx, monthly_df.loc[max_idx, "PD"] * 100),
+        xytext=(0, 25),
+        textcoords="offset points",
+        arrowprops={"arrowstyle": "->", "alpha": 0.6},
+        fontsize=9,
+    )
+
+    axs_cr[1].plot(monthly_df.index, monthly_df["DD"], marker="o", linestyle="-", color="#2ca02c")
+    axs_cr[1].axhline(0.0, color="black", linestyle="--", linewidth=1, alpha=0.7)
+    axs_cr[1].set_title("Distance to Default $DD(t)$ Over Time")
+    axs_cr[1].set_xlabel("Date")
+    axs_cr[1].set_ylabel("Distance to Default")
+    axs_cr[1].grid(alpha=0.25)
+
+    axs_cr[0].xaxis.set_major_formatter(date_fmt)
+    axs_cr[1].xaxis.set_major_formatter(date_fmt)
+    for ax in axs_cr:
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
+
+    credit_plot_path = PROJECT_ROOT / "outputs" / "credit_risk_timeseries.png"
+    credit_plot_path.parent.mkdir(parents=True, exist_ok=True)
+    fig_cr.savefig(credit_plot_path, dpi=120)
+    print(f"Saved credit risk time-series plot to {credit_plot_path}")
+
+    # -----------------------------
+    # Survival curve at the final date (latest calibration)
+    # -----------------------------
+    latest_row = monthly_df.iloc[-1]
+    V_A_final = latest_row["V_A"]
+    sigma_A_final = latest_row["sigma_A"]
+    D_final = latest_row["D"]
+    r_final = latest_row["r"]
+    maturities = np.arange(0.5, 5.1, 0.5)
+
+    survival_dd = (
+        np.log(V_A_final / D_final) + (r_final - 0.5 * sigma_A_final ** 2) * maturities
+    ) / (sigma_A_final * np.sqrt(maturities))
+    survival_S = norm.cdf(survival_dd)
+    survival_PD = 1.0 - survival_S
+
+    survival_table = pd.DataFrame({
+        "Maturity (years)": maturities,
+        "Survival (%)": survival_S * 100,
+        "Default Probability (%)": survival_PD * 100,
+    })
+    print("\nSurvival curve at latest date (2026-05-31):")
+    print(survival_table.to_string(index=False, float_format="{:.4f}".format))
+
+    fig_sc, ax_sc = plt.subplots(figsize=(10, 5), constrained_layout=True)
+    ax_sc.plot(maturities, survival_S * 100, marker="o", linestyle="-", color="#9467bd")
+    ax_sc.set_title("Survival Curve at Latest Date (2026-05-31)")
+    ax_sc.set_xlabel("Time to Maturity (years)")
+    ax_sc.set_ylabel("Survival Probability (%)")
+    ax_sc.grid(alpha=0.25)
+    ax_sc.set_ylim(0, 100)
+
+    survival_plot_path = PROJECT_ROOT / "outputs" / "survival_curve_latest.png"
+    survival_plot_path.parent.mkdir(parents=True, exist_ok=True)
+    fig_sc.savefig(survival_plot_path, dpi=120)
+    print(f"Saved latest survival curve to {survival_plot_path}")
+
+    # -----------------------------
     # Plot the calibrated asset series over time
     # -----------------------------
     fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(14, 5), constrained_layout=True)
