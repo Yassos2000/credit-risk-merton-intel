@@ -130,6 +130,69 @@ def main() -> None:
     except Exception as e:
         print(f"Calibration failed: {e}")
 
+    # -----------------------------
+    # Apply calibration to all monthly dates
+    # -----------------------------
+    print("\n--- Batch calibration across all monthly dates ---")
+
+    V_results = []
+    sigmaA_results = []
+    failed = []
+
+    for idx, row in monthly_df.iterrows():
+        E_row = float(row["market_cap"]) if not pd.isna(row["market_cap"]) else np.nan
+        sigmaE_row = float(row["sigma_E"]) if not pd.isna(row["sigma_E"]) else np.nan
+        D_row = float(row["D"]) if not pd.isna(row["D"]) else np.nan
+        r_row = float(row["r"]) if not pd.isna(row["r"]) else np.nan
+        tau_row = 1.0
+
+        try:
+            sol = calibrate_single(E_row, sigmaE_row, D_row, r_row, tau=tau_row)
+            V_A_row = sol["V_A"]
+            sigma_A_row = sol["sigma_A"]
+
+            # Verify residuals are small
+            res1, res2 = merton_system((V_A_row, sigma_A_row), E_row, sigmaE_row, D_row, r_row, tau_row)
+            if not (abs(res1) < 1e-3 and abs(res2) < 1e-3):
+                failed.append((idx, res1, res2))
+
+        except Exception as e:
+            V_A_row = np.nan
+            sigma_A_row = np.nan
+            failed.append((idx, str(e)))
+
+        V_results.append(V_A_row)
+        sigmaA_results.append(sigma_A_row)
+
+    # Attach results to dataframe
+    monthly_df["V_A"] = V_results
+    monthly_df["sigma_A"] = sigmaA_results
+
+    # Warn if any failures
+    if failed:
+        print(f"\nWarning: Calibration issues for {len(failed)} dates:")
+        for item in failed:
+            print(f" - {item}")
+    else:
+        print("\nAll dates calibrated successfully with residuals below threshold.")
+
+    # Save the enriched monthly dataframe
+    calibrated_path = PROJECT_ROOT / "data" / "processed" / "intel_monthly_calibrated.csv"
+    calibrated_path.parent.mkdir(parents=True, exist_ok=True)
+    monthly_df.to_csv(calibrated_path)
+    print(f"Saved calibrated monthly dataset to {calibrated_path}")
+
+    # Print summary table (V_A in billions, sigma_A in percent)
+    summary = monthly_df[["V_A", "sigma_A"]].copy()
+    summary["V_A_bil"] = summary["V_A"] / 1e9
+    summary["sigma_A_pct"] = summary["sigma_A"] * 100
+
+    print("\nCalibrated values (V_A in USD billions, sigma_A in %):")
+    print(summary[["V_A_bil", "sigma_A_pct"]].to_string())
+
+    print("\nDescriptive statistics for calibrated columns:")
+    print(summary[["V_A_bil", "sigma_A_pct"]].describe().to_string())
+
 
 if __name__ == "__main__":
     main()
