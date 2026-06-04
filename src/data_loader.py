@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import numpy as np
 import pandas as pd
 from fredapi import Fred
@@ -158,9 +159,12 @@ def main() -> None:
     print("\n=== Top 5 plus gros log-rendements (avec signe) ===")
     print(signed_top5)
 
-    # Save the final daily dataset for later use
-    processed_path = os.path.join("..", "data", "processed", "intel_daily_dataset.csv")
-    os.makedirs(os.path.dirname(processed_path), exist_ok=True)
+    # PROJECT_ROOT points to the project root regardless of invocation CWD
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+    # Save the final daily dataset for later use (use absolute path from PROJECT_ROOT)
+    processed_path = PROJECT_ROOT / "data" / "processed" / "intel_daily_dataset.csv"
+    processed_path.parent.mkdir(parents=True, exist_ok=True)
     adjusted_data.to_csv(processed_path)
     print(f"Saved processed daily dataset to {processed_path}")
 
